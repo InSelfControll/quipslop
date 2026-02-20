@@ -191,18 +191,12 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header__left">
-          <a href="/" className="header__logo">QUIPSLOP</a>
-          <span className="header__tagline">History</span>
-        </div>
-        <nav className="header__nav">
-          <a href="/">← Back to Game</a>
-        </nav>
-      </header>
-
+      <a href="/" className="main-logo">QUIPSLOP</a>
       <main className="main">
-        <div className="page-title">Past Rounds</div>
+        <div className="page-header">
+          <div className="page-title">Past Rounds</div>
+          <a href="/" className="back-link">← Back to Game</a>
+        </div>
 
         {loading ? (
           <div className="loading">Loading...</div>

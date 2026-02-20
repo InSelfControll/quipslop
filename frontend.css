@@ -32,34 +32,6 @@ body {
   flex-direction: column;
 }
 
-/* ── Header ───────────────────────────────────────────────────── */
-
-.header {
-  padding: 24px 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  flex-shrink: 0;
-}
-
-.header__logo {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -1px;
-  color: var(--text);
-}
-
-.header__tagline {
-  color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
 /* ── Layout Grid ──────────────────────────────────────────────── */
 
 .layout {
@@ -76,6 +48,20 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  position: relative;
+}
+
+.main-logo {
+  position: absolute;
+  top: 32px;
+  left: 48px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--text);
+  text-decoration: none;
+  z-index: 10;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────── */

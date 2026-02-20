@@ -23,43 +23,48 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Header ───────────────────────────────────────────────────── */
-.header {
-  padding: 24px 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.header__left {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.header__logo {
+/* ── Main Layout ──────────────────────────────────────────────── */
+.main-logo {
+  position: absolute;
+  top: 32px;
+  left: 48px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -1px;
   color: var(--text);
   text-decoration: none;
+  z-index: 10;
 }
 
-.header__tagline {
-  color: var(--text-muted);
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.page-title {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
-.header__nav a {
+.back-link {
   color: var(--text-dim);
   text-decoration: none;
   font-family: 'JetBrains Mono', monospace;
@@ -70,30 +75,8 @@ body {
   transition: color 0.2s;
 }
 
-.header__nav a:hover {
+.back-link:hover {
   color: var(--text);
-}
-
-/* ── Main Layout ──────────────────────────────────────────────── */
-.main {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 64px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-
-.page-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
-  margin-bottom: 16px;
 }
 
 /* ── Loading / Error ──────────────────────────────────────────── */

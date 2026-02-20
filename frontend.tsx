@@ -391,13 +391,9 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <h1 className="header__logo">QUIPSLOP</h1>
-        <p className="header__tagline">AI vs AI Comedy Showdown</p>
-      </header>
-
       <div className="layout">
         <main className="main" ref={mainRef}>
+          <a href="/" className="main-logo">QUIPSLOP</a>
           {(() => {
             const isGeneratingNextPrompt = state.active && state.active.phase === "prompting" && !state.active.prompt;
             const lastCompleted = state.completed[state.completed.length - 1];
