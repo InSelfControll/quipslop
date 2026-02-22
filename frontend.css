@@ -601,7 +601,7 @@ body {
   }
 
   .main {
-    padding: 32px 48px;
+    padding: 88px 48px 32px;
     position: relative;
     align-items: center;
   }
