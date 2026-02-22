@@ -346,18 +346,20 @@ function drawRound(round: RoundState) {
 
   const promptFont = '400 56px "DM Serif Display", serif';
   const promptLineHeight = 72;
-  const promptMaxLines = 4;
-  const promptMaxWidth = mainW - 160;
+  const promptMaxLines = 3;
+  const promptMaxWidth = mainW - 120;
   const promptLines = textLines(promptText, promptMaxWidth, promptFont, promptMaxLines);
-  const promptHeight = promptLines.length * promptLineHeight;
+  const promptTextHeight = promptLines.length * promptLineHeight;
+  const promptBaselineY = 262;
+  const promptBarY = promptBaselineY - 44;
 
-  ctx.fillStyle = "#D97757";
-  ctx.fillRect(64, 230, 4, promptHeight);
+  ctx.fillStyle = getColor(round.prompter.name);
+  ctx.fillRect(64, promptBarY, 4, promptTextHeight + 6);
 
   drawTextBlock(
     promptText,
-    92,
-    260,
+    80,
+    promptBaselineY,
     promptMaxWidth,
     promptLineHeight,
     promptFont,
@@ -368,7 +370,7 @@ function drawRound(round: RoundState) {
   if (round.phase !== "prompting") {
     const [taskA, taskB] = round.answerTasks;
     const cardW = (mainW - 160) / 2;
-    const cardY = 240 + promptHeight + 32;
+    const cardY = promptBarY + promptTextHeight + 6 + 32;
     const cardH = HEIGHT - cardY - 40;
     drawContestantCard(taskA, 64, cardY, cardW, cardH, round);
     drawContestantCard(taskB, 64 + cardW + 32, cardY, cardW, cardH, round);
