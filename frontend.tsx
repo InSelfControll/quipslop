@@ -20,7 +20,7 @@ type RoundState = {
   scoreB?: number;
 };
 type GameState = { completed: RoundState[]; active: RoundState | null; scores: Record<string, number>; done: boolean };
-type ServerMessage = { type: "state"; data: GameState; totalRounds: number };
+type ServerMessage = { type: "state"; data: GameState; totalRounds: number; viewerCount: number };
 
 // ── Model colors & logos ─────────────────────────────────────────────────────
 
@@ -298,6 +298,7 @@ function ConnectingScreen() {
 function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [totalRounds, setTotalRounds] = useState<number | null>(null);
+  const [viewerCount, setViewerCount] = useState(0);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -318,6 +319,7 @@ function App() {
         if (msg.type === "state") {
           setState(msg.data);
           setTotalRounds(msg.totalRounds);
+          setViewerCount(msg.viewerCount);
         }
       };
     }
@@ -343,6 +345,10 @@ function App() {
             <a href="/" className="logo">
               <img src="/assets/logo.svg" alt="Qwipslop" />
             </a>
+            <div className="viewer-pill" aria-live="polite">
+              <span className="viewer-pill__dot" />
+              {viewerCount} viewer{viewerCount === 1 ? "" : "s"} watching
+            </div>
           </header>
 
           {state.done ? (

@@ -36,7 +36,10 @@ if (allRounds.length > 0) {
       }
     }
   }
-  initialCompleted = [allRounds[allRounds.length - 1]];
+  const lastRound = allRounds[allRounds.length - 1];
+  if (lastRound) {
+    initialCompleted = [lastRound];
+  }
 }
 
 const gameState: GameState = {
@@ -52,7 +55,12 @@ const gameState: GameState = {
 const clients = new Set<ServerWebSocket<unknown>>();
 
 function broadcast() {
-  const msg = JSON.stringify({ type: "state", data: gameState, totalRounds: runs });
+  const msg = JSON.stringify({
+    type: "state",
+    data: gameState,
+    totalRounds: runs,
+    viewerCount: clients.size,
+  });
   for (const ws of clients) {
     ws.send(msg);
   }
@@ -111,13 +119,14 @@ const server = Bun.serve({
   websocket: {
     open(ws) {
       clients.add(ws);
-      ws.send(JSON.stringify({ type: "state", data: gameState, totalRounds: runs }));
+      broadcast();
     },
     message(_ws, _message) {
       // Spectator-only, no client messages handled
     },
     close(ws) {
       clients.delete(ws);
+      broadcast();
     },
   },
   development: process.env.NODE_ENV === "production" ? false : {
