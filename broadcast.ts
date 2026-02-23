@@ -244,22 +244,6 @@ function drawHeader() {
   ctx.fillStyle = "#ededed";
   ctx.fillText("quipslop", 48, 76);
 
-  const viewersText = `${viewerCount} viewer${viewerCount === 1 ? "" : "s"} watching`;
-  ctx.font = '600 18px "JetBrains Mono", monospace';
-  ctx.fillStyle = "#888";
-  const vWidth = ctx.measureText(viewersText).width;
-
-  const pillW = vWidth + 44;
-  const pillX = WIDTH - 380 - 48 - pillW;
-  roundRect(pillX, 44, pillW, 40, 20, "rgba(255,255,255,0.02)");
-
-  ctx.fillStyle = connected ? "#22c55e" : "#ef4444";
-  ctx.beginPath();
-  ctx.arc(pillX + 18, 64, 5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#888";
-  ctx.fillText(viewersText, pillX + 32, 70);
 }
 
 function drawScoreboard(scores: Record<string, number>) {
