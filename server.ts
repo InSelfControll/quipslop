@@ -105,12 +105,13 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 }
 
 function isPrivateIp(ip: string): boolean {
-  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") return true;
-  if (ip.startsWith("10.")) return true;
-  if (ip.startsWith("192.168.")) return true;
+  const v4 = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+  if (v4 === "127.0.0.1" || ip === "::1") return true;
+  if (v4.startsWith("10.")) return true;
+  if (v4.startsWith("192.168.")) return true;
   if (ip.startsWith("fc") || ip.startsWith("fd")) return true;
-  if (ip.startsWith("172.")) {
-    const second = parseInt(ip.split(".")[1], 10);
+  if (v4.startsWith("172.")) {
+    const second = parseInt(v4.split(".")[1] ?? "", 10);
     if (second >= 16 && second <= 31) return true;
   }
   return false;
@@ -581,7 +582,7 @@ const server = Bun.serve<WsData>({
         wsNewConnections = 0;
         wsNewConnectionsResetAt = now + 1000;
       }
-      if (++wsNewConnections > MAX_WS_NEW_PER_SEC) {
+      if (wsNewConnections >= MAX_WS_NEW_PER_SEC) {
         return new Response("Too Many Requests", { status: 429 });
       }
       if (clients.size >= MAX_WS_GLOBAL) {
@@ -607,6 +608,7 @@ const server = Bun.serve<WsData>({
         log("WARN", "ws", "WebSocket upgrade failed", { ip });
         return new Response("WebSocket upgrade failed", { status: 400 });
       }
+      wsNewConnections++;
       return undefined;
     }
 
