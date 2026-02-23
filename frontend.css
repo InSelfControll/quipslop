@@ -138,6 +138,19 @@ body {
   color: var(--text-dim);
 }
 
+.vote-hint {
+  margin: -10px 0 22px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.vote-hint strong {
+  color: var(--text);
+}
+
 /* ── Prompt ───────────────────────────────────────────────────── */
 
 .prompt {
