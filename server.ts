@@ -132,11 +132,13 @@ function getClientIp(req: Request, server: Bun.Server<WsData>): string {
     const xff = req.headers.get("x-forwarded-for");
     if (xff) {
       const rightmost = xff.split(",").at(-1)?.trim();
-      if (rightmost) return rightmost;
+      if (rightmost && !isPrivateIp(rightmost)) {
+        return rightmost.startsWith("::ffff:") ? rightmost.slice(7) : rightmost;
+      }
     }
   }
 
-  return socketIp;
+  return socketIp.startsWith("::ffff:") ? socketIp.slice(7) : socketIp;
 }
 
 function isRateLimited(key: string, limit: number, windowMs: number): boolean {
