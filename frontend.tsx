@@ -53,8 +53,7 @@ type ViewerCountMessage = {
   type: "viewerCount";
   viewerCount: number;
 };
-type VotedAckMessage = { type: "votedAck"; votedFor: "A" | "B" };
-type ServerMessage = StateMessage | ViewerCountMessage | VotedAckMessage;
+type ServerMessage = StateMessage | ViewerCountMessage;
 
 // ── Model colors & logos ─────────────────────────────────────────────────────
 
@@ -161,9 +160,6 @@ function ContestantCard({
   voters,
   viewerVotes,
   totalViewerVotes,
-  votable,
-  onVote,
-  isMyVote,
 }: {
   task: TaskInfo;
   voteCount: number;
@@ -173,9 +169,6 @@ function ContestantCard({
   voters: VoteInfo[];
   viewerVotes?: number;
   totalViewerVotes?: number;
-  votable?: boolean;
-  onVote?: () => void;
-  isMyVote?: boolean;
 }) {
   const color = getColor(task.model.name);
   const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
@@ -186,16 +179,11 @@ function ContestantCard({
 
   return (
     <div
-      className={`contestant ${isWinner ? "contestant--winner" : ""} ${votable ? "contestant--votable" : ""} ${isMyVote ? "contestant--my-vote" : ""}`}
+      className={`contestant ${isWinner ? "contestant--winner" : ""}`}
       style={{ "--accent": color } as React.CSSProperties}
-      onClick={votable ? onVote : undefined}
-      role={votable ? "button" : undefined}
-      tabIndex={votable ? 0 : undefined}
-      onKeyDown={votable ? (e) => { if (e.key === "Enter" || e.key === " ") onVote?.(); } : undefined}
     >
       <div className="contestant__head">
         <ModelTag model={task.model} />
-        {isMyVote && !isWinner && <span className="my-vote-tag">YOUR PICK</span>}
         {isWinner && <span className="win-tag">WIN</span>}
       </div>
 
@@ -280,14 +268,10 @@ function ContestantCard({
 function Arena({
   round,
   total,
-  myVote,
-  onVote,
   viewerVotingSecondsLeft,
 }: {
   round: RoundState;
   total: number | null;
-  myVote: "A" | "B" | null;
-  onVote: (side: "A" | "B") => void;
   viewerVotingSecondsLeft: number;
 }) {
   const [contA, contB] = round.contestants;
@@ -304,12 +288,6 @@ function Arena({
   const votersA = round.votes.filter((v) => v.votedFor?.name === contA.name);
   const votersB = round.votes.filter((v) => v.votedFor?.name === contB.name);
   const totalViewerVotes = (round.viewerVotesA ?? 0) + (round.viewerVotesB ?? 0);
-
-  const canVote =
-    round.phase === "voting" &&
-    viewerVotingSecondsLeft > 0 &&
-    round.answerTasks[0].finishedAt &&
-    round.answerTasks[1].finishedAt;
 
   const showCountdown = round.phase === "voting" && viewerVotingSecondsLeft > 0;
 
@@ -336,6 +314,11 @@ function Arena({
           )}
         </span>
       </div>
+      {showCountdown && (
+        <div className="vote-hint">
+          Vote in Twitch chat: <strong>1</strong> for left, <strong>2</strong> for right.
+        </div>
+      )}
 
       <PromptCard round={round} />
 
@@ -350,9 +333,6 @@ function Arena({
             voters={votersA}
             viewerVotes={round.viewerVotesA}
             totalViewerVotes={totalViewerVotes}
-            votable={!!canVote}
-            onVote={() => onVote("A")}
-            isMyVote={myVote === "A"}
           />
           <ContestantCard
             task={round.answerTasks[1]}
@@ -363,9 +343,6 @@ function Arena({
             voters={votersB}
             viewerVotes={round.viewerVotesB}
             totalViewerVotes={totalViewerVotes}
-            votable={!!canVote}
-            onVote={() => onVote("B")}
-            isMyVote={myVote === "B"}
           />
         </div>
       )}
@@ -490,19 +467,7 @@ function App() {
   const [totalRounds, setTotalRounds] = useState<number | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [connected, setConnected] = useState(false);
-  const [myVote, setMyVote] = useState<"A" | "B" | null>(null);
-  const [votedRound, setVotedRound] = useState<number | null>(null);
   const [viewerVotingSecondsLeft, setViewerVotingSecondsLeft] = useState(0);
-  const wsRef = React.useRef<WebSocket | null>(null);
-
-  // Reset vote when round changes
-  useEffect(() => {
-    const currentRound = state?.active?.num ?? null;
-    if (currentRound !== null && currentRound !== votedRound) {
-      setMyVote(null);
-      setVotedRound(null);
-    }
-  }, [state?.active?.num, votedRound]);
 
   // Countdown timer for viewer voting
   useEffect(() => {
@@ -530,11 +495,9 @@ function App() {
     let knownVersion: string | null = null;
     function connect() {
       ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
       ws.onopen = () => setConnected(true);
       ws.onclose = () => {
         setConnected(false);
-        wsRef.current = null;
         reconnectTimer = setTimeout(connect, 2000);
       };
       ws.onmessage = (e) => {
@@ -549,8 +512,6 @@ function App() {
           setViewerCount(msg.viewerCount);
         } else if (msg.type === "viewerCount") {
           setViewerCount(msg.viewerCount);
-        } else if (msg.type === "votedAck") {
-          setMyVote(msg.votedFor);
         }
       };
     }
@@ -561,13 +522,6 @@ function App() {
       ws?.close();
     };
   }, []);
-
-  const handleVote = (side: "A" | "B") => {
-    if (myVote === side || !wsRef.current) return;
-    wsRef.current.send(JSON.stringify({ type: "vote", votedFor: side }));
-    setMyVote(side);
-    setVotedRound(state?.active?.num ?? null);
-  };
 
   if (!connected || !state) return <ConnectingScreen />;
 
@@ -606,8 +560,6 @@ function App() {
             <Arena
               round={displayRound}
               total={totalRounds}
-              myVote={myVote}
-              onVote={handleVote}
               viewerVotingSecondsLeft={viewerVotingSecondsLeft}
             />
           ) : (

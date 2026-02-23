@@ -90,6 +90,14 @@ const MAX_HISTORY_CACHE_KEYS = parsePositiveInt(
   process.env.MAX_HISTORY_CACHE_KEYS,
   500,
 );
+const FOSSABOT_CHANNEL_LOGIN = (
+  process.env.FOSSABOT_CHANNEL_LOGIN ?? "quipslop"
+).trim().toLowerCase();
+const FOSSABOT_VOTE_SECRET = process.env.FOSSABOT_VOTE_SECRET ?? "";
+const FOSSABOT_VALIDATE_TIMEOUT_MS = parsePositiveInt(
+  process.env.FOSSABOT_VALIDATE_TIMEOUT_MS,
+  1_500,
+);
 const ADMIN_COOKIE = "quipslop_admin";
 const ADMIN_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
@@ -249,6 +257,75 @@ function setHistoryCache(key: string, body: string, expiresAt: number) {
   historyCache.set(key, { body, expiresAt });
 }
 
+type ViewerVoteSide = "A" | "B";
+
+function isValidFossabotValidateUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl);
+    return (
+      url.protocol === "https:" &&
+      url.host === "api.fossabot.com" &&
+      url.pathname.startsWith("/v2/customapi/validate/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function validateFossabotRequest(validateUrl: string): Promise<boolean> {
+  if (!isValidFossabotValidateUrl(validateUrl)) {
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    FOSSABOT_VALIDATE_TIMEOUT_MS,
+  );
+  try {
+    const res = await fetch(validateUrl, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    if (!res.ok) return false;
+
+    const body = (await res.json().catch(() => null)) as
+      | { context_url?: unknown }
+      | null;
+    return Boolean(body && typeof body.context_url === "string");
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function applyViewerVote(voterId: string, side: ViewerVoteSide): boolean {
+  const round = gameState.active;
+  if (!round || round.phase !== "voting") return false;
+  if (!round.viewerVotingEndsAt || Date.now() > round.viewerVotingEndsAt) {
+    return false;
+  }
+
+  const previousVote = viewerVoters.get(voterId);
+  if (previousVote === side) return false;
+
+  // Undo previous vote if this viewer switched sides.
+  if (previousVote === "A") {
+    round.viewerVotesA = Math.max(0, (round.viewerVotesA ?? 0) - 1);
+  } else if (previousVote === "B") {
+    round.viewerVotesB = Math.max(0, (round.viewerVotesB ?? 0) - 1);
+  }
+
+  viewerVoters.set(voterId, side);
+  if (side === "A") {
+    round.viewerVotesA = (round.viewerVotesA ?? 0) + 1;
+  } else {
+    round.viewerVotesB = (round.viewerVotesB ?? 0) + 1;
+  }
+  return true;
+}
+
 // ── WebSocket clients ───────────────────────────────────────────────────────
 
 const clients = new Set<ServerWebSocket<WsData>>();
@@ -342,6 +419,86 @@ const server = Bun.serve<WsData>({
 
     if (url.pathname === "/healthz") {
       return new Response("ok", { status: 200 });
+    }
+
+    if (
+      url.pathname === "/api/fossabot/vote/1" ||
+      url.pathname === "/api/fossabot/vote/2"
+    ) {
+      if (req.method !== "GET") {
+        return new Response("", {
+          status: 405,
+          headers: { Allow: "GET" },
+        });
+      }
+      if (!FOSSABOT_VOTE_SECRET) {
+        log("ERROR", "vote:fossabot", "FOSSABOT_VOTE_SECRET is not configured");
+        return new Response("", { status: 503 });
+      }
+
+      const providedSecret = url.searchParams.get("secret") ?? "";
+      if (!providedSecret || !secureCompare(providedSecret, FOSSABOT_VOTE_SECRET)) {
+        log("WARN", "vote:fossabot", "Rejected due to missing/invalid secret", {
+          ip,
+        });
+        return new Response("", { status: 401 });
+      }
+
+      const channelProvider = req.headers
+        .get("x-fossabot-channelprovider")
+        ?.trim()
+        .toLowerCase();
+      const channelLogin = req.headers
+        .get("x-fossabot-channellogin")
+        ?.trim()
+        .toLowerCase();
+      if (channelProvider !== "twitch" || channelLogin !== FOSSABOT_CHANNEL_LOGIN) {
+        log("WARN", "vote:fossabot", "Rejected due to channel/provider mismatch", {
+          ip,
+          channelProvider,
+          channelLogin,
+        });
+        return new Response("", { status: 403 });
+      }
+
+      const validateUrl = req.headers.get("x-fossabot-validateurl") ?? "";
+      const isValid = await validateFossabotRequest(validateUrl);
+      if (!isValid) {
+        log("WARN", "vote:fossabot", "Validation check failed", { ip });
+        return new Response("", { status: 401 });
+      }
+
+      const userProvider = req.headers
+        .get("x-fossabot-message-userprovider")
+        ?.trim()
+        .toLowerCase();
+      if (userProvider && userProvider !== "twitch") {
+        return new Response("", { status: 403 });
+      }
+
+      const userProviderId = req.headers
+        .get("x-fossabot-message-userproviderid")
+        ?.trim();
+      const userLogin = req.headers
+        .get("x-fossabot-message-userlogin")
+        ?.trim()
+        .toLowerCase();
+      const voterId = userProviderId || userLogin;
+      if (!voterId) {
+        return new Response("", { status: 400 });
+      }
+
+      const votedFor: ViewerVoteSide = url.pathname.endsWith("/1") ? "A" : "B";
+      const applied = applyViewerVote(voterId, votedFor);
+      if (applied) {
+        scheduleViewerVoteBroadcast();
+      }
+      return new Response("", {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      });
     }
 
     if (url.pathname === "/api/admin/login") {
@@ -646,31 +803,8 @@ const server = Bun.serve<WsData>({
       // Notify everyone else with just the viewer count
       broadcastViewerCount();
     },
-    message(ws, message) {
-      try {
-        const msg = JSON.parse(String(message));
-        if (msg.type !== "vote") return;
-
-        const round = gameState.active;
-        if (!round || round.phase !== "voting") return;
-        if (!round.viewerVotingEndsAt || Date.now() > round.viewerVotingEndsAt) return;
-        if (msg.votedFor !== "A" && msg.votedFor !== "B") return;
-
-        const ip = ws.data.ip;
-        const previousVote = viewerVoters.get(ip);
-        if (previousVote === msg.votedFor) return; // same vote, ignore
-
-        // Undo previous vote if changing
-        if (previousVote === "A") round.viewerVotesA = Math.max(0, (round.viewerVotesA ?? 0) - 1);
-        else if (previousVote === "B") round.viewerVotesB = Math.max(0, (round.viewerVotesB ?? 0) - 1);
-
-        viewerVoters.set(ip, msg.votedFor);
-        if (msg.votedFor === "A") round.viewerVotesA = (round.viewerVotesA ?? 0) + 1;
-        else round.viewerVotesB = (round.viewerVotesB ?? 0) + 1;
-
-        ws.send(JSON.stringify({ type: "votedAck", votedFor: msg.votedFor }));
-        scheduleViewerVoteBroadcast();
-      } catch {}
+    message() {
+      // Viewer voting moved to Twitch chat via Fossabot.
     },
     close(ws) {
       clients.delete(ws);
